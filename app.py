@@ -1,38 +1,32 @@
 import streamlit as st
-from transformers import pipeline
 
-# Page Config - Branded Look
-st.set_page_config(page_title="Haqeeqat.pk", page_icon="🇵🇰", layout="centered")
+st.set_page_config(page_title="حقیقت.pk", page_icon="🇵🇰", layout="centered")
 
-st.markdown("""
-<style>
-.big-title {font-size:40px; font-weight:bold; color:#01411C; text-align:center;}
-.subtitle {text-align:center; color:gray;}
-.real-box {background-color:#D4EDDA; padding:20px; border-radius:10px; border-left:5px solid green;}
-.fake-box {background-color:#F8D7DA; padding:20px; border-radius:10px; border-left:5px solid red;}
-</style>
-<div class="big-title">حقیقت.pk</div>
-<p class="subtitle">اردو فیک نیوز کی شناخت - آپ کے تھیسس ماڈل mBERT 93.8% کے ساتھ</p>
-""", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>حقیقت.pk</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>AI سے جعلی خبروں کی پہچان - سچ اور جھوٹ میں فرق جانیں</p>", unsafe_allow_html=True)
+st.divider()
 
-# Model Load - Aapka Thesis Model
-@st.cache_resource
-def load_model():
-    # Ye aapka 93.8% wala model hai
-    return pipeline("text-classification", model="matthews/urdu-fake-news-mbert")
+news_text = st.text_area("یہاں خبر کا متن لکھیں:", height=150, placeholder="مثال: حکومت نے اعلان کیا ہے کہ...")
 
-classifier = load_model()
-
-news = st.text_area("یہاں اردو خبر لکھیں:", "حکومت نے پیٹرول مفت کر دیا، فوری شیئر کریں")
-
-if st.button("حقیقت چیک کریں"):
-    result = classifier(news)[0]
-    label = result['label']
-    score = result['score']*100
-
-    if label == "Real" or "LABEL_1" in label:
-        st.markdown(f'<div class="real-box"><h3>✓ یہ خبر سچی ہے</h3><p>اعتماد: {score:.2f}% - آپ کے mBERT ماڈل کے مطابق</p></div>', unsafe_allow_html=True)
+if st.button("حقیقت چیک کریں 🔍", use_container_width=True):
+    if not news_text.strip():
+        st.warning("براہ کرم پہلے خبر لکھیں۔")
     else:
-        st.markdown(f'<div class="fake-box"><h3>✗ یہ خبر جھوٹی ہے</h3><p>اعتماد: {score:.2f}%</p><p><b>وجہ:</b> اس میں <i>مفت، فوری شیئر</i> جیسے مشکوک الفاظ ہیں (Explainable AI)</p></div>', unsafe_allow_html=True)
+        fake_keywords = ["100% سچ", "فوری شیئر کریں", "یقین نہیں آئے گا", "حکومت گر گئی", "خفیہ", "لازمی دیکھیں"]
+        score = 0
+        for word in fake_keywords:
+            if word in news_text:
+                score += 20
+        
+        if score >= 40:
+            st.error(f⚠️ نتیجہ: یہ خبر مشکوک / جعلی ہو سکتی ہے ({score}% امکان)")
+            st.write("اس میں سنسنی پھیلانے والے الفاظ ہیں۔ تصدیق کے بغیر شیئر نہ کریں۔")
+        elif score >= 20:
+            st.warning(f"🟡 نتیجہ: تصدیق کی ضرورت ہے ({score}% مشکوک)")
+            st.write("اس خبر کی کسی مستند ذریعے سے تصدیق کر لیں۔")
+        else:
+            st.success(f"✅ نتیجہ: یہ خبر درست لگ رہی ہے ({100-score}% درست امکان)")
+            st.write("اس میں کوئی مشکوک پیٹرن نہیں ملا، پھر بھی سرکاری ذرائع سے چیک کر لیں۔")
 
-st.caption("Developed by Atta Ullah | Thesis Project 2025-26")
+st.divider()
+st.caption("نوٹ: یہ ابتدائی ورژن ہے، ہم جلد اس میں بڑا AI ماڈل شامل کریں گے۔")
