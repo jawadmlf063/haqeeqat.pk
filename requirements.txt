@@ -1,1 +1,6 @@
 streamlit
+scikit-learn
+pandas
+transformers
+torch
+lime
