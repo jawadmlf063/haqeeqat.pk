@@ -1,4 +1,1 @@
 streamlit
-transformers
-scikit-learn
-lime
