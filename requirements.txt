@@ -1,6 +1,5 @@
 streamlit
-scikit-learn
-pandas
 transformers
 torch
-lime
+scikit-learn
+urduhack
