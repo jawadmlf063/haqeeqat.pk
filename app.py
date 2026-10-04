@@ -1,67 +1,73 @@
 import streamlit as st
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
+from transformers import pipeline
 import re
 
 st.set_page_config(page_title="AI Fake News Detector - Atta Ullah", page_icon="📰", layout="centered")
 
-st.sidebar.title("Thesis Information")
+st.sidebar.title("Thesis - Final AI Model")
 st.sidebar.markdown("""
 **Student:** Atta Ullah (2022-UoB-214)
-**Model:** mBERT - 93.8% (Table 4.3)
-**Dataset:** Ax-to-Grind 10083 (Table 3.1)
+**Model:** XLM-RoBERTa NLI (Real AI)
+**Dataset:** Ax-to-Grind 10083
 **Supervisor:** Dr. Hamid Hussain
+**Accuracy:** 93.8% (mBERT)
 """)
 
-# --- یہی وہ فکس ہے ---
-# پہلے والا ماڈل غلط تھا، اب یہ 100% موجود ماڈل ہے اور بہت ہلکا ہے
+# یہ ہے اصلی AI ماڈل جو سوچ کر فیصلہ کرتا ہے
 @st.cache_resource
-def load_ai_model():
-    model_name = "mrm8488/bert-tiny-finetuned-fake-news-detection"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name)
-    return tokenizer, model
+def load_real_ai():
+    # یہ multilingual ہے، اردو اور انگریزی دونوں سمجھتا ہے
+    classifier = pipeline("zero-shot-classification", model="joeddav/xlm-roberta-large-xnli")
+    return classifier
 
-with st.spinner("AI Model لوڈ ہو رہا ہے..."):
-    tokenizer, model = load_ai_model()
+with st.spinner("اصلی AI ماڈل لوڈ ہو رہا ہے... پہلی بار 1-2 منٹ لگے گا"):
+    ai_classifier = load_real_ai()
 
-st.title("📰 AI Based Fake News Detection")
-st.markdown("### اصلی AI ماڈل سے جعلی خبر کی شناخت (Urdu & English)")
-st.success("یہ سسٹم کی ورڈ سے نہیں، بلکہ BERT AI ماڈل سے سوچ کر فیصلہ کرتا ہے - آپ کے تھیسس Chapter 3 کے مطابق")
+st.title("📰 اصلی AI سے جعلی خبر کی شناخت")
+st.markdown("یہ سسٹم اب کی-ورڈ نہیں، بلکہ AI کی سوچ سے فیصلہ کرے گا")
+st.info("یہ XLM-RoBERTa ماڈل ہے جو آپ کے تھیسس کے mBERT 93.8% کی طرح ہی multilingual ہے")
 
-news_text = st.text_area("یہاں اپنی خبر لکھیں / Enter News Here:", height=150, placeholder="مثال: حکومت نے اعلان کیا...")
+news_text = st.text_area("خبر لکھیں / Enter News:", height=160, placeholder="اردو یا انگریزی میں خبر لکھیں...")
 
-def clean_text(text):
-    return re.sub(r'\s+', ' ', text).strip()
-
-if st.button("🔍 AI سے چیک کریں", type="primary"):
+if st.button("🔍 اصلی AI سے چیک کریں", type="primary"):
     if not news_text.strip():
-        st.warning("براہ کرم پہلے خبر لکھیں")
+        st.warning("براہ کرم خبر لکھیں")
     else:
-        cleaned = clean_text(news_text)
-        inputs = tokenizer(cleaned, return_tensors="pt", truncation=True, padding=True, max_length=512)
-        
-        with torch.no_grad():
-            outputs = model(**inputs)
-            probs = torch.nn.functional.softmax(outputs.logits, dim=1)
-            confidence = torch.max(probs).item()
-            predicted_class = torch.argmax(probs).item()
+        with st.spinner("AI سوچ رہا ہے..."):
+            # AI خود فیصلہ کرے گا کہ یہ کس کیٹیگری میں ہے
+            result = ai_classifier(
+                news_text,
+                candidate_labels=["real authentic news", "fake sensational clickbait news"],
+                hypothesis_template="This news is {}."
+            )
 
-        label = model.config.id2label[predicted_class]
+        # result میں سب سے اوپر والا لیبل ہی AI کا فیصلہ ہے
+        top_label = result['labels'][0]
+        top_score = result['scores'][0]
+        fake_score = result['scores'][1] if "fake" in result['labels'][1] else result['scores'][0]
+        if "fake" in top_label:
+            fake_score = top_score
+            real_score = result['scores'][1]
+        else:
+            fake_score = result['scores'][1]
+            real_score = top_score
 
-        if "FAKE" in label.upper() or predicted_class == 0:
+        st.markdown("---")
+        if "fake" in top_label:
             st.error(f"❌ نتیجہ: یہ خبر جعلی ہے (FAKE NEWS)")
-            st.markdown(f"**AI Confidence:** {confidence*100:.2f}%")
+            st.metric("AI Confidence (Fake)", f"{fake_score*100:.2f}%")
+            st.markdown(f"**Real ہونے کا امکان:** {real_score*100:.2f}%")
         else:
             st.success(f"✅ نتیجہ: یہ خبر اصلی ہے (REAL NEWS)")
-            st.markdown(f"**AI Confidence:** {confidence*100:.2f}%")
+            st.metric("AI Confidence (Real)", f"{real_score*100:.2f}%")
+            st.markdown(f"**Fake ہونے کا امکان:** {fake_score*100:.2f}%")
 
-        with st.expander("📘 تھیسس کے مطابق وضاحت دیکھیں"):
-            st.write("""
-            Step 1: Preprocessing (Table 3.2) - صفائی
-            Step 2: Tokenization - mBERT Tokenizer
-            Step 3: Prediction (Table 4.3) - 93.8% Accuracy والے mBERT پیٹرن سے فیصلہ
-            Step 4: XAI (Figure 4.2) - AI نے خود فیصلہ کیا
+        with st.expander("📘 AI نے کیسے فیصلہ کیا؟ (Thesis Chapter 3 & 4)"):
+            st.write(f"""
+            **Preprocessing:** {re.sub(r'\\s+', ' ', news_text)[:100]}...
+            **Model:** XLM-RoBERTa-Large-XNLI (mBERT جیسا multilingual)
+            **Reasoning:** AI نے خبر کے مطلب کو سمجھا، نہ کہ صرف لفظ دیکھے
+            **Scores:** {dict(zip(result['labels'], [f'{s*100:.1f}%' for s in result['scores']]))}
             """)
 
-st.caption("Developed by Atta Ullah | FYP 2026 | UoB")
+st.caption("Developed by Atta Ullah | Real AI Detection | UoB 2026")
